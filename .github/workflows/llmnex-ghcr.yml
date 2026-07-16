@@ -66,7 +66,7 @@ jobs:
         run: |
           TOKEN_OWNER=$(gh api user --jq '.login')
           TOKEN_HEADERS=$(gh api --include user)
-          TOKEN_SCOPES=$(printf '%s\n' "$TOKEN_HEADERS" | awk '
+          TOKEN_SCOPES=$(printf '%s\n' "$TOKEN_HEADERS" | tr -d '\r' | awk '
             BEGIN { IGNORECASE=1 }
             /^x-oauth-scopes:/ {
               sub(/^[^:]+:[[:space:]]*/, "")
