@@ -1,9 +1,8 @@
 name: Publish llmnex image to GHCR
 
 on:
-  push:
-    tags:
-      - 'llmnex-v*'
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -32,12 +31,16 @@ jobs:
         id: release
         env:
           EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
           MANUAL_TAG: ${{ inputs.tag }}
         run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" = "release" ]; then
+            TAG="$RELEASE_TAG"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             TAG="$MANUAL_TAG"
           else
-            TAG="$GITHUB_REF_NAME"
+            echo "::error::Unsupported event '$EVENT_NAME'"
+            exit 1
           fi
 
           case "$TAG" in
