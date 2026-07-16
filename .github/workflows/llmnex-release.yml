@@ -1,0 +1,103 @@
+name: Create llmnex release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: llmnex-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Create next release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Calculate next release
+        id: release
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/llmnex/main" ]; then
+            echo "::error::Automated releases must run from llmnex/main"
+            exit 1
+          fi
+
+          BASE_TAG=$(git describe --tags --match 'v*' --abbrev=0 HEAD 2>/dev/null || true)
+          if [ -z "$BASE_TAG" ]; then
+            echo "::error::No official v* base tag is reachable from llmnex/main"
+            exit 1
+          fi
+
+          PREFIX="llmnex-${BASE_TAG}."
+          MAX_REVISION=0
+          while IFS= read -r EXISTING_TAG; do
+            SUFFIX=${EXISTING_TAG#"$PREFIX"}
+            case "$SUFFIX" in
+              ''|*[!0-9]*) continue ;;
+            esac
+            if [ "$SUFFIX" -gt "$MAX_REVISION" ]; then
+              MAX_REVISION=$SUFFIX
+            fi
+          done < <(git tag --list "${PREFIX}*")
+
+          NEXT_REVISION=$((MAX_REVISION + 1))
+          TAG="${PREFIX}${NEXT_REVISION}"
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            echo "::error::Calculated tag '$TAG' already exists"
+            exit 1
+          fi
+
+          if [ "$MAX_REVISION" -eq 0 ]; then
+            NOTES_START_TAG="$BASE_TAG"
+          else
+            NOTES_START_TAG="${PREFIX}${MAX_REVISION}"
+          fi
+
+          TARGET_SHA=$(git rev-parse HEAD)
+          START_SHA=$(git rev-parse "${NOTES_START_TAG}^{commit}")
+          if [ "$TARGET_SHA" = "$START_SHA" ]; then
+            echo "::error::No new commits exist after '$NOTES_START_TAG'"
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "notes_start_tag=$NOTES_START_TAG" >> "$GITHUB_OUTPUT"
+          echo "target_sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+          NOTES_START_TAG: ${{ steps.release.outputs.notes_start_tag }}
+          TARGET_SHA: ${{ steps.release.outputs.target_sha }}
+        run: |
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title "$TAG" \
+            --generate-notes \
+            --notes-start-tag "$NOTES_START_TAG"
+
+      - name: Start GHCR image publication
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          gh workflow run llmnex-ghcr.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref llmnex/main \
+            --raw-field "tag=$TAG"
+
+      - name: Summarize release
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          echo "Published Release: $TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "Started GHCR image publication for: $TAG" >> "$GITHUB_STEP_SUMMARY"
