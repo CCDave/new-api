@@ -80,5 +80,7 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ steps.release.outputs.tag }}
             ${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
