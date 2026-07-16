@@ -60,6 +60,43 @@ jobs:
           echo "$TAG" > VERSION
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      - name: Validate GHCR credentials
+        env:
+          GH_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          TOKEN_OWNER=$(gh api user --jq '.login')
+          TOKEN_HEADERS=$(gh api --include user)
+          TOKEN_SCOPES=$(printf '%s\n' "$TOKEN_HEADERS" | awk '
+            BEGIN { IGNORECASE=1 }
+            /^x-oauth-scopes:/ {
+              sub(/^[^:]+:[[:space:]]*/, "")
+              print
+              exit
+            }
+          ')
+
+          echo "GHCR token owner: $TOKEN_OWNER"
+          echo "GHCR token scopes: $TOKEN_SCOPES"
+
+          if [ "${TOKEN_OWNER,,}" != "${GITHUB_REPOSITORY_OWNER,,}" ]; then
+            echo "::error::GHCR_TOKEN belongs to '$TOKEN_OWNER', expected '$GITHUB_REPOSITORY_OWNER'"
+            exit 1
+          fi
+
+          case ",${TOKEN_SCOPES// /}," in
+            *,write:packages,*) ;;
+            *)
+              echo "::error::GHCR_TOKEN does not have write:packages"
+              exit 1
+              ;;
+          esac
+
+          gh api \
+            --method GET \
+            /user/packages \
+            -f package_type=container \
+            >/dev/null
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
