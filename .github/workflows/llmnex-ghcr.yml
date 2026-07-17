@@ -60,43 +60,6 @@ jobs:
           echo "$TAG" > VERSION
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Validate GHCR credentials
-        env:
-          GH_TOKEN: ${{ secrets.GHCR_TOKEN }}
-        run: |
-          TOKEN_OWNER=$(gh api user --jq '.login')
-          TOKEN_HEADERS=$(gh api --include user)
-          TOKEN_SCOPES=$(printf '%s\n' "$TOKEN_HEADERS" | tr -d '\r' | awk '
-            BEGIN { IGNORECASE=1 }
-            /^x-oauth-scopes:/ {
-              sub(/^[^:]+:[[:space:]]*/, "")
-              print
-              exit
-            }
-          ')
-
-          echo "GHCR token owner: $TOKEN_OWNER"
-          echo "GHCR token scopes: $TOKEN_SCOPES"
-
-          if [ "${TOKEN_OWNER,,}" != "${GITHUB_REPOSITORY_OWNER,,}" ]; then
-            echo "::error::GHCR_TOKEN belongs to '$TOKEN_OWNER', expected '$GITHUB_REPOSITORY_OWNER'"
-            exit 1
-          fi
-
-          case ",${TOKEN_SCOPES// /}," in
-            *,write:packages,*) ;;
-            *)
-              echo "::error::GHCR_TOKEN does not have write:packages"
-              exit 1
-              ;;
-          esac
-
-          gh api \
-            --method GET \
-            /user/packages \
-            -f package_type=container \
-            >/dev/null
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
@@ -104,8 +67,8 @@ jobs:
         uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -117,5 +80,7 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ steps.release.outputs.tag }}
             ${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
