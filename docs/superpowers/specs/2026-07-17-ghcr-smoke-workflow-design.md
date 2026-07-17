@@ -2,7 +2,7 @@
 
 ## 目标
 
-新增一个独立、仅手动触发的 GitHub Actions 工作流，用最短时间验证当前仓库的 `GITHUB_TOKEN` 是否能够在 `ghcr.io/cddave/llmnex-new-api` 创建并推送容器 Package。该工作流不构建 new-api 项目，不替代正式镜像发布工作流。
+新增一个独立、仅手动触发的 GitHub Actions 工作流，用最短时间验证当前仓库的 `GITHUB_TOKEN` 是否能够在 `ghcr.io/ccdave/llmnex-new-api` 创建并推送容器 Package。该工作流不构建 new-api 项目，不替代正式镜像发布工作流。
 
 ## 工作流边界
 
@@ -11,7 +11,7 @@
 - Runner：`ubuntu-latest`
 - 权限：`contents: read`、`packages: write`
 - 认证：`${{ github.actor }}` 和 `${{ secrets.GITHUB_TOKEN }}`
-- 目标镜像：`ghcr.io/cddave/llmnex-new-api:permission-smoke`
+- 目标镜像：`ghcr.io/ccdave/llmnex-new-api:permission-smoke`
 - 不检出仓库代码，不安装项目依赖，不初始化 Buildx，不使用 Actions 缓存。
 
 ## 验证流程

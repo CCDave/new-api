@@ -53,8 +53,8 @@ Events created with `GITHUB_TOKEN` generally do not start another workflow autom
 The GHCR workflow remains responsible for validating the tag and publishing:
 
 ```text
-ghcr.io/cddave/llmnex-new-api:<calculated tag>
-ghcr.io/cddave/llmnex-new-api:latest
+ghcr.io/ccdave/llmnex-new-api:<calculated tag>
+ghcr.io/ccdave/llmnex-new-api:latest
 ```
 
 ## Permissions

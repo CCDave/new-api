@@ -15,7 +15,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/cddave/llmnex-new-api
+  IMAGE_NAME: ghcr.io/ccdave/llmnex-new-api
 
 jobs:
   publish:
