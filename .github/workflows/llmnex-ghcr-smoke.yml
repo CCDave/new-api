@@ -1,0 +1,43 @@
+name: Verify GHCR package push
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/cddave/llmnex-new-api
+  IMAGE_TAG: permission-smoke
+
+jobs:
+  smoke:
+    name: Push minimal image to GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build minimal smoke image
+        env:
+          SOURCE_REPOSITORY: https://github.com/${{ github.repository }}
+        run: |
+          docker build \
+            --label "org.opencontainers.image.source=$SOURCE_REPOSITORY" \
+            --tag "$IMAGE_NAME:$IMAGE_TAG" \
+            - <<'DOCKERFILE'
+          FROM scratch
+          DOCKERFILE
+
+      - name: Push smoke image
+        run: docker push "$IMAGE_NAME:$IMAGE_TAG"
+
+      - name: Write success summary
+        run: |
+          printf 'Successfully pushed `%s:%s`.\n' \
+            "$IMAGE_NAME" "$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
